@@ -1,0 +1,20 @@
+# Simulation artifacts
+*.vcd
+*.log
+*.vvp
+sim/waves/*.vcd
+sim/logs/*.log
+
+# Coverage
+verif/coverage/reports/*
+!verif/coverage/reports/.gitkeep
+
+# Build/compiled
+*.o
+*.out
+__pycache__/
+*.pyc
+
+# Editor
+.vscode/
+*.swp

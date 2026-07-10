@@ -1,0 +1,6 @@
+# One test name per line (matches file names under verif/tests/directed/ or /random/)
+# test_alu_ops
+# test_load_use_hazard
+# test_branch_mispredict
+# test_ecall_ebreak
+# test_interrupt_mid_stall
