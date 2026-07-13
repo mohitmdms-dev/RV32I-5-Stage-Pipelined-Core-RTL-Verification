@@ -67,9 +67,13 @@ module riscv_core (
 
     // STAGE 2: DECODE (D)
     
-    logic [4:0]  rs1_D = instr_D[19:15];
-    logic [4:0]  rs2_D = instr_D[24:20];
-    logic [4:0]  rd_D  = instr_D[11:7];
+    logic [4:0]  rs1_D;
+    logic [4:0]  rs2_D;
+    logic [4:0]  rd_D;
+
+    assign rs1_D = instr_D[19:15];
+    assign rs2_D = instr_D[24:20];
+    assign rd_D  = instr_D[11:7];
     
     logic [31:0] rd1_D, rd2_D;
     logic [31:0] imm_ext_D;
