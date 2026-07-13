@@ -9,7 +9,7 @@ module ex_mem_reg (
     
     // Data Inputs
     input logic [31:0] alu_result_in, rd2_in, target_addr_in,
-    input logic        zero_flag_in,
+    input logic        take_branch_in,
     input logic [4:0]  rd_in,
 
     // Control Outputs
@@ -17,7 +17,7 @@ module ex_mem_reg (
     
     // Data Outputs
     output logic [31:0] alu_result_out, rd2_out, target_addr_out,
-    output logic        zero_flag_out,
+    output logic        take_branch_out,
     output logic [4:0]  rd_out
    
 );
@@ -36,7 +36,7 @@ always_ff @(posedge clk or negedge rst_n) begin
             alu_result_out  <= 32'b0;
             rd2_out         <= 32'b0;
             target_addr_out <= 32'b0;
-            zero_flag_out   <= 1'b0;
+            take_branch_out   <= 1'b0;
             rd_out          <= 5'b0;
         end
         else begin
@@ -50,7 +50,7 @@ always_ff @(posedge clk or negedge rst_n) begin
             alu_result_out  <= alu_result_in;
             rd2_out         <= rd2_in;
             target_addr_out <= target_addr_in;
-            zero_flag_out   <= zero_flag_in;
+            take_branch_out   <= take_branch_in;
             rd_out          <= rd_in;
         end    
 

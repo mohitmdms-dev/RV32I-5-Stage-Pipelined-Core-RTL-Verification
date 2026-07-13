@@ -8,7 +8,8 @@ module control_unit (
     output logic alu_src,           //1 if the ALU uses the Immediate Generator, 0 if it uses Register 2
     output logic reg_write,         //1 if we are saving a result to the Register File
 
-    output logic [2:0] alu_op       //Tells a secondary ALU decoder what type of math to do. 00 for Add, 01 for Branch/Sub, 10 for R-type/I-type math 
+    output logic [2:0] alu_op,       //Tells a secondary ALU decoder what type of math to do. 00 for Add, 01 for Branch/Sub, 10 for R-type/I-type math 
+    output logic [2:0] imm_src      //Tells Immediate generator which format to extract
 );          
 
 // RISC-V RV32I Opcodes
@@ -31,7 +32,8 @@ always_comb begin
         mem_to_reg = 1'b0;
         alu_src    = 1'b0;       //USE REG2, NOT IMMEDIATE
         reg_write  = 1'b1;       //SAVE THE MATH RESULT
-        alu_op     = 2'b10;      //R-TYPE MATH
+        alu_op     = 3'b010;      //R-TYPE MATH
+        imm_src    = 3'b000;     
     end
 
     OP_I_TYPE: begin
@@ -41,7 +43,8 @@ always_comb begin
         mem_to_reg = 1'b0;
         alu_src    = 1'b1;       //USE IMMEDIATE
         reg_write  = 1'b1;       //SAVE THE MATH RESULT
-        alu_op     = 2'b10;      //MATH
+        alu_op     = 3'b011;      //MATH
+        imm_src    = 3'b000;     // Extracts I-TYPE
     end
 
     OP_LOAD: begin
@@ -51,7 +54,8 @@ always_comb begin
         mem_to_reg = 1'b1;       //Route the memory output to the Register File
         alu_src    = 1'b1;       //Feed the Immediate Generator into the ALU for the offset
         reg_write  = 1'b1;       //Turn on the Register File write enable
-        alu_op     = 2'b00;       //Force the ALU to ADD
+        alu_op     = 3'b000;       //Force the ALU to ADD
+        imm_src    = 3'b000;     // Extracts I-TYPE
     end
 
     OP_STORE: begin
@@ -61,7 +65,8 @@ always_comb begin
         mem_to_reg = 1'b0;        //Doesn't matter, we aren't saving to a register, so default to 0
         alu_src    = 1'b1;        //Feed the Immediate Generator into the ALU for the offset
         reg_write  = 1'b0;        //Do not overwrite a register
-        alu_op     = 2'b00;        //Force the ALU to ADD
+        alu_op     = 3'b000;        //Force the ALU to ADD
+        imm_src    = 3'b001;     // Extracts S-TYPE
     end
 
     OP_BRANCH: begin
@@ -71,7 +76,8 @@ always_comb begin
         mem_to_reg = 1'b0;
         alu_src    = 1'b0;        //Feed Register 2 into the ALU so we can compare it with Register 1
         reg_write  = 1'b0;        //Do not write to a register
-        alu_op     = 2'b01;        //Force the ALU to SUBTRACT to evaluate the comparison
+        alu_op     = 3'b001;        //Force the ALU to SUBTRACT to evaluate the comparison
+        imm_src    = 3'b010;     // Extracts B-TYPE
     end
 
     default: begin
@@ -81,7 +87,8 @@ always_comb begin
         mem_to_reg = 1'b0;
         alu_src    = 1'b0;
         reg_write  = 1'b0;
-        alu_op     = 2'b00;
+        alu_op     = 3'b000;
+        imm_src    = 3'b000;    
     end
 
     endcase

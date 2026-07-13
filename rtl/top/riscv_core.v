@@ -23,29 +23,28 @@ module riscv_core (
     assign flush = pcsel_M; // If we branch, flush the instructions behind it
 
     mux2to1 #(32) pc_mux (
-        .d0(pc_plus4_F),
-        .d1(target_addr_M),
+        .in0(pc_plus4_F),
+        .in1(target_addr_M),
         .sel(pcsel_M),
-        .y(next_pc_F)
+        .out(next_pc_F)
     );
 
-    pc_reg pc_inst (
+    pc_register pc_inst (
         .clk(clk),
         .rst_n(rst_n),
-        .en(~stall), 
-        .d(next_pc_F),
-        .q(pc_F)
+        .pc_en(~stall), 
+        .pc_next(next_pc_F),
+        .pc_current(pc_F)
     );
 
-    adder pc_adder (
-        .a(pc_F),
-        .b(32'd4),
-        .sum(pc_plus4_F)
+    pc_adder pc_adder_inst (
+        .pc_in(pc_F),
+        .pc_out(pc_plus4_F)
     );
 
     instr_mem imem (
-        .addr(pc_F),
-        .instr(instr_F)
+        .a(pc_F),
+        .rd(instr_F)
     );
 
     
@@ -78,7 +77,8 @@ module riscv_core (
     // Control Wires
     logic reg_write_D, mem_to_reg_D, mem_write_D, mem_read_D;
     logic branch_D, alu_src_D;
-    logic [1:0] alu_op_D;
+    logic [2:0] alu_op_D;
+    logic [2:0] imm_src_D;
 
     control_unit ctrl_inst (
         .opcode(instr_D[6:0]),
@@ -88,7 +88,8 @@ module riscv_core (
         .mem_read(mem_read_D),
         .branch(branch_D),
         .alu_src(alu_src_D),
-        .alu_op(alu_op_D)
+        .alu_op(alu_op_D),
+        .imm_src(imm_src_D)
     );
 
     // Writeback Wires (From Stage 5)
@@ -96,19 +97,20 @@ module riscv_core (
     logic [4:0]  rd_W;
     logic [31:0] write_data_W;
 
-    reg_file rf_inst (
+    regfile rf_inst (
         .clk(clk),
-        .reg_write(reg_write_W),
-        .rs1(rs1_D),
-        .rs2(rs2_D),
-        .rd(rd_W),
-        .write_data(write_data_W),
+        .write_en(reg_write_W),
+        .a1(rs1_D),
+        .a2(rs2_D),
+        .a3(rd_W),
+        .wd3(write_data_W),
         .rd1(rd1_D),
         .rd2(rd2_D)
     );
 
     imm_gen imm_inst (
         .instr(instr_D),
+        .imm_src(imm_src_D),
         .imm_ext(imm_ext_D)
     );
 
@@ -117,7 +119,7 @@ module riscv_core (
     
     logic reg_write_E, mem_to_reg_E, mem_write_E, mem_read_E;
     logic branch_E, alu_src_E;
-    logic [1:0] alu_op_E;
+    logic [2:0] alu_op_E;
     
     logic [31:0] pc_E, rd1_E, rd2_E, imm_ext_E;
     logic [4:0]  rs1_E, rs2_E, rd_E;
@@ -164,11 +166,12 @@ module riscv_core (
     
     // STAGE 3: EXECUTE (E)
     
-    logic [2:0]  alu_ctrl_E;
+    logic [3:0]  alu_ctrl_E;
     logic [31:0] alu_in1_E, alu_in2_mux_E, alu_in2_E;
     logic [31:0] alu_result_E;
     logic        zero_flag_E;
     logic [31:0] target_addr_E;
+    logic        take_branch_E;
 
     // Forwarding Wires & Unit
     logic [1:0] forward_a, forward_b;
@@ -199,10 +202,10 @@ module riscv_core (
 
     // ALU Src MUX (Chooses between Reg/Forward data vs Immediate)
     mux2to1 #(32) alu_src_mux (
-        .d0(alu_in2_mux_E),
-        .d1(imm_ext_E),
+        .in0(alu_in2_mux_E),
+        .in1(imm_ext_E),
         .sel(alu_src_E),
-        .y(alu_in2_E)
+        .out(alu_in2_E)
     );
 
     alu_control alu_ctrl_inst (
@@ -216,9 +219,16 @@ module riscv_core (
     alu alu_inst (
         .a(alu_in1_E),
         .b(alu_in2_E),
-        .alu_ctrl(alu_ctrl_E),
+        .op_sel(alu_ctrl_E),
         .result(alu_result_E),
-        .zero(zero_flag_E)
+        .zero_flag(zero_flag_E)
+    );
+
+    branch_eval b_eval_inst (
+        .a(alu_in1_E),
+        .b(alu_in2_mux_E), // Use the forwarded input
+        .funct3(funct3_E),
+        .take_branch(take_branch_E)
     );
 
     branch_adder b_adder_inst (
@@ -230,7 +240,7 @@ module riscv_core (
 
     // PIPELINE REGISTER 3: EX/MEM
     
-    logic mem_to_reg_M, mem_write_M, mem_read_M, branch_M;
+    logic mem_to_reg_M, mem_write_M, mem_read_M, branch_M, take_branch_M;
     logic [31:0] rd2_M;
     logic        zero_flag_M;
 
@@ -242,16 +252,20 @@ module riscv_core (
         .mem_write_in(mem_write_E), .mem_read_in(mem_read_E),
         .branch_in(branch_E),
         
-        .alu_result_in(alu_result_E), .rd2_in(alu_in2_mux_E), // Pass forwarded data!
-        .target_addr_in(target_addr_E), .zero_flag_in(zero_flag_E),
+        .alu_result_in(alu_result_E), 
+        .rd2_in(alu_in2_mux_E),
+        .target_addr_in(target_addr_E), 
+        .take_branch_in(take_branch_E),
         .rd_in(rd_E),
 
         .reg_write_out(reg_write_M), .mem_to_reg_out(mem_to_reg_M),
         .mem_write_out(mem_write_M), .mem_read_out(mem_read_M),
         .branch_out(branch_M),
         
-        .alu_result_out(alu_result_M), .rd2_out(rd2_M),
-        .target_addr_out(target_addr_M), .zero_flag_out(zero_flag_M),
+        .alu_result_out(alu_result_M), 
+        .rd2_out(rd2_M),
+        .target_addr_out(target_addr_M), 
+        .take_branch_out(take_branch_M), 
         .rd_out(rd_M)
     );
 
@@ -261,7 +275,7 @@ module riscv_core (
     logic [31:0] read_data_M;
     
     // Branch Logic (AND gate)
-    assign pcsel_M = branch_M & zero_flag_M;
+    assign pcsel_M = branch_M & take_branch_M;
 
     data_mem dmem (
         .clk(clk),
@@ -299,10 +313,10 @@ module riscv_core (
     // STAGE 5: WRITEBACK (W)
     
     mux2to1 #(32) wb_mux (
-        .d0(alu_result_W),
-        .d1(read_data_W),
+        .in0(alu_result_W),
+        .in1(read_data_W),
         .sel(mem_to_reg_W),
-        .y(write_data_W)
+        .out(write_data_W)
     );
 
 endmodule

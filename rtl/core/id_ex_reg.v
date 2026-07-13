@@ -8,7 +8,7 @@ module id_ex_reg (
     // Control Inputs
     input logic reg_write_in, mem_to_reg_in, mem_write_in, mem_read_in,
     input logic branch_in, alu_src_in, 
-    input logic [1:0] alu_op_in,
+    input logic [2:0] alu_op_in,
     
     // Data Inputs
     input logic [31:0] pc_in, rd1_in, rd2_in, imm_ext_in,
@@ -19,7 +19,7 @@ module id_ex_reg (
     // Control Outputs
     output logic reg_write_out, mem_to_reg_out, mem_write_out, mem_read_out,
     output logic branch_out, alu_src_out,
-    output logic [1:0] alu_op_out,
+    output logic [2:0] alu_op_out,
     
     // Data Outputs
     output logic [31:0] pc_out, rd1_out, rd2_out, imm_ext_out,
@@ -38,7 +38,7 @@ always_ff @(posedge clk or negedge rst_n) begin
             mem_read_out   <= 1'b0;
             branch_out     <= 1'b0;
             alu_src_out    <= 1'b0;
-            alu_op_out     <= 2'b00;
+            alu_op_out     <= 3'b000;
             
             // Clear Data/Address Signals
             pc_out         <= 32'b0;
@@ -59,7 +59,7 @@ always_ff @(posedge clk or negedge rst_n) begin
             mem_read_out   <= 1'b0;
             branch_out     <= 1'b0;
             alu_src_out    <= 1'b0;
-            alu_op_out     <= 2'b00;
+            alu_op_out     <= 3'b000;
             
             // Clear Data/Address Signals
             pc_out         <= 32'b0;

@@ -4,7 +4,7 @@ module data_mem (
 
     //DATA INPUTS
     input logic [31:0] addr,   //The memory address calculated by the ALU
-    input [31:0] write_data    //The data we want to save, which comes from rd2
+    input [31:0] write_data,    //The data we want to save, which comes from rd2
 
     //DATA OUTPUT
     output logic [31:0] read_data
