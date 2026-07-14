@@ -9,16 +9,16 @@ module riscv_core (
     logic flush; 
     
     
-    // STAGE 1: FETCH (F)
+// STAGE 1: FETCH (F)
     
-    logic [31:0] pc_F;
-    logic [31:0] pc_plus4_F;
-    logic [31:0] instr_F;
-    logic [31:0] next_pc_F;
+    logic [31:0] pc_F;        //current pc value
+    logic [31:0] pc_plus4_F;  //default sequential next pc
+    logic [31:0] instr_F;     //raw 32 bit instruction
+    logic [31:0] next_pc_F;   //selected next pc output of pc_mux
     
     // Branch control from Memory Stage
-    logic        pcsel_M; 
-    logic [31:0] target_addr_M;
+    logic        pcsel_M;        //from the MEM stage
+    logic [31:0] target_addr_M;  //destination address of a taken branch from MEM stage
     
     assign flush = pcsel_M; // If we branch, flush the instructions behind it
 
@@ -65,9 +65,9 @@ module riscv_core (
     );
 
 
-    // STAGE 2: DECODE (D)
+// STAGE 2: DECODE (D)
     
-    logic [4:0]  rs1_D;
+    logic [4:0]  rs1_D;         //5bit register addresses extracted from instr_d  
     logic [4:0]  rs2_D;
     logic [4:0]  rd_D;
 
@@ -75,7 +75,7 @@ module riscv_core (
     assign rs2_D = instr_D[24:20];
     assign rd_D  = instr_D[11:7];
     
-    logic [31:0] rd1_D, rd2_D;
+    logic [31:0] rd1_D, rd2_D;     //data read from registerfile
     logic [31:0] imm_ext_D;
 
     // Control Wires
@@ -168,7 +168,7 @@ module riscv_core (
     );
 
     
-    // STAGE 3: EXECUTE (E)
+// STAGE 3: EXECUTE (E)
     
     logic [3:0]  alu_ctrl_E;
     logic [31:0] alu_in1_E, alu_in2_mux_E, alu_in2_E;
@@ -274,7 +274,7 @@ module riscv_core (
     );
 
     
-    // STAGE 4: MEMORY (M)
+// STAGE 4: MEMORY (M)
 
     logic [31:0] read_data_M;
     
@@ -314,7 +314,7 @@ module riscv_core (
         .rd_out(rd_W)
     );
 
-    // STAGE 5: WRITEBACK (W)
+// STAGE 5: WRITEBACK (W)
     
     mux2to1 #(32) wb_mux (
         .in0(alu_result_W),
