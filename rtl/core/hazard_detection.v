@@ -13,7 +13,7 @@ module hazard_detection (
 
     always_comb begin
         // If the instruction ahead of us is a LOAD, and it is loading into 
-        // a register we are about to use, we MUST freeze for one cycle.
+        // a register we are about to use, we MUST freeze (stall) for one cycle.
         if (mem_read_ex == 1'b1 && (rd_ex == rs1_id || rd_ex == rs2_id)) begin
             stall = 1'b1;
         end

@@ -27,7 +27,7 @@ logic [DATA_WIDTH-1:0] mem_array [31:0];
    //only save data if the Control Unit tells us to (write_en == 1)
    //make sure we never accidentally overwrite register x0
 always_ff @(posedge clk) begin
-    if(write_en == 1'b1 && a3 !==5'b0) begin
+    if(write_en == 1'b1 && a3 !=5'b0) begin
         mem_array[a3] <= wd3;
     end
 end
