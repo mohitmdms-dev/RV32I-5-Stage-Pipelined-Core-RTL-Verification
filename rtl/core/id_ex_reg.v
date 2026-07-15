@@ -15,6 +15,10 @@ module id_ex_reg (
     input logic [4:0]  rs1_in, rs2_in, rd_in, // Reg addresses for hazard detection later
     input logic [2:0]  funct3_in,
     input logic        funct7_5_in,
+    // [BUGFIX]: Added op_5 to pipeline register. 
+    // Bit 5 of the opcode is required in the Execute stage to differentiate 
+    // between R-Type (e.g., SUB) and I-Type (e.g., ADDI) ALU operations.
+    input logic        op_5_in,
 
     // Control Outputs
     output logic reg_write_out, mem_to_reg_out, mem_write_out, mem_read_out,
@@ -25,7 +29,8 @@ module id_ex_reg (
     output logic [31:0] pc_out, rd1_out, rd2_out, imm_ext_out,
     output logic [4:0]  rs1_out, rs2_out, rd_out,
     output logic [2:0]  funct3_out,
-    output logic        funct7_5_out
+    output logic        funct7_5_out,
+    output logic        op_5_out    // Carries opcode bit 5 into Execute stage
 );
 
 
@@ -50,6 +55,7 @@ always_ff @(posedge clk or negedge rst_n) begin
             rd_out         <= 5'b0;
             funct3_out     <= 3'b0;
             funct7_5_out   <= 1'b0;
+            op_5_out       <= 1'b0;
         end
         else if (flush == 1'b1) begin
             // Clear Control Signals (creates a NOP bubble)
@@ -71,6 +77,7 @@ always_ff @(posedge clk or negedge rst_n) begin
             rd_out         <= 5'b0;
             funct3_out     <= 3'b0;
             funct7_5_out   <= 1'b0;
+            op_5_out       <= 1'b0;
         end
         else begin
             // Pass Inputs to Outputs
@@ -91,6 +98,7 @@ always_ff @(posedge clk or negedge rst_n) begin
             rd_out         <= rd_in;
             funct3_out     <= funct3_in;
             funct7_5_out   <= funct7_5_in;
+            op_5_out       <= op_5_in;
         end
     end
 

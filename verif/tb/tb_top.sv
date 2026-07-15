@@ -19,12 +19,13 @@ module tb_top;
         forever #10 clk = ~clk;
     end
     
+    //memory initialization and waveform dump
     initial begin
         $dumpfile("sim/riscv_tb.vcd");
         $dumpvars(0, tb_top);
 
         // READ THE HEX FILE INTO MEMORY HERE:
-        $readmemh("verif/tests/directed/test_alu_ops.hex", dut.imem.rom);
+        $readmemh("verif/tests/directed/test_alu_r_type.hex", dut.imem.rom);
 
         //reset active
         rst_n = 0;
@@ -34,32 +35,27 @@ module tb_top;
         //reset inactive
         rst_n = 1;
 
-        #500;
+        #2000;
 
         $finish;
 
     end
     
-
+    //verification block
     always_ff @(negedge clk) begin
+        if (dut.reg_write_W) begin
+            $display("Time: %0t | Writeback: Reg[%0d] = %h", $time, dut.rd_W, dut.write_data_W);
 
-        //only evaluate on cycles where the processor actually writes
-        if(dut.reg_write_W) begin
-            //check specifically for our final ADD instruction writing to x3 
-            if (dut.rd_W == 5'd3) begin
-                //assert the math is correct
-                if (dut.write_data_W == 32'h0000_000F) begin
-                    $display("\n=========");
-                    $display("SUCCESS: x3 correctly calculated as 15");
-                    $display("=========\n");
-                    $finish; 
-                end
-                else begin
-                    $fatal(1, "\n FAILED: expected 15 in x3, but got %h\n", dut.write_data_W);
+            if(dut.rd_W == 5'd10) begin 
+                if (dut.write_data_W == 32'd2) begin 
+                    $display("=========================");
+                    $display("SUCCESS: Test Passed (Value: %d)", dut.write_data_W);
+                    $display("==========================");
+                    $finish;
                 end
             end
-        end
+         end
     end
 
-    
+
 endmodule

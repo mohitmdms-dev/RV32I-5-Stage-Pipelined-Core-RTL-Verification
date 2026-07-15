@@ -1,0 +1,4 @@
+00500093 // ADDI x1, x0, 5    : Set register x1 to 5
+00600113 // ADDI x2, x0, 6    : Set register x2 to 6
+00208663 // BEQ  x1, x2, 8    : Branch to offset 8 if x1 == x2 (5 != 6, so branch not taken)
+00A00193 // ADDI x3, x0, 10   : Set register x3 to 10 (Target result)

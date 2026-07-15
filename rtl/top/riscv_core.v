@@ -20,12 +20,12 @@ module riscv_core (
     logic        pcsel_M;        //from the MEM stage
     logic [31:0] target_addr_M;  //destination address of a taken branch from MEM stage
     
-    assign flush = pcsel_M; // If we branch, flush the instructions behind it
+    assign flush = take_branch_E; // Flush immediately when Execute stage says jump
 
     mux2to1 #(32) pc_mux (
         .in0(pc_plus4_F),
         .in1(target_addr_M),
-        .sel(pcsel_M),
+        .sel(take_branch_E),     //changed from pcsel_M to Now using the gated decision from Execute stage
         .out(next_pc_F)
     );
 
@@ -145,6 +145,8 @@ module riscv_core (
         .rs1_in(rs1_D),             .rs2_in(rs2_D),
         .rd_in(rd_D),
         .funct3_in(instr_D[14:12]), .funct7_5_in(instr_D[30]),
+        .op_5_in(instr_D[5]),     //Extract bit 5 of the current instruction to send to Execute stage
+
 
         .reg_write_out(reg_write_E), .mem_to_reg_out(mem_to_reg_E),
         .mem_write_out(mem_write_E), .mem_read_out(mem_read_E),
@@ -155,7 +157,8 @@ module riscv_core (
         .rd2_out(rd2_E),             .imm_ext_out(imm_ext_E),
         .rs1_out(rs1_E),             .rs2_out(rs2_E),
         .rd_out(rd_E),
-        .funct3_out(funct3_E),       .funct7_5_out(funct7_5_E)
+        .funct3_out(funct3_E),       .funct7_5_out(funct7_5_E),
+        .op_5_out(op_5_E)
     );
 
     // Hazard Detection Unit
@@ -179,7 +182,7 @@ module riscv_core (
 
     // Forwarding Wires & Unit
     logic [1:0] forward_a, forward_b;
-    
+    wire op_5_E; 
     // Wires from MEM stage needed for forwarding
     logic        reg_write_M;
     logic [4:0]  rd_M;
@@ -216,7 +219,11 @@ module riscv_core (
         .alu_op(alu_op_E),
         .funct3(funct3_E),
         .funct7_5(funct7_5_E),
-        .op_5(imm_ext_E[5]), // Bit 5 of instruction dictates R vs I type math
+        // [BUGFIX]: Must use the actual instruction's opcode bit (op_5_E), 
+        // NOT the sign-extended immediate (imm_ext_E[5]). The immediate 
+        // defaults to 0 for R-Type instructions, which previously forced 
+        // all SUBs to execute as ADDs.
+        .op_5(op_5_E), 
         .alu_ctrl(alu_ctrl_E)
     );
 
@@ -232,6 +239,7 @@ module riscv_core (
         .a(alu_in1_E),
         .b(alu_in2_mux_E), // Use the forwarded input
         .funct3(funct3_E),
+        .branch_E(branch_E),
         .take_branch(take_branch_E)
     );
 
