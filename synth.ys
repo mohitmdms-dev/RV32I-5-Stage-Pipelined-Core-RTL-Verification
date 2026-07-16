@@ -1,17 +1,17 @@
-# 1. Read files from the core directory
-read_verilog -sv rtl/core/alu_control.v rtl/core/alu.v rtl/core/branch_adder.v rtl/core/branch_eval.v rtl/core/control_unit.v rtl/core/ex_mem_reg.v rtl/core/forwarding_unit.v rtl/core/hazard_detection.v rtl/core/id_ex_reg.v rtl/core/if_id_reg.v rtl/core/imm_gen.v rtl/core/mem_wb_reg.v rtl/core/mux2to1.v rtl/core/pc_adder.v rtl/core/pc_register.v rtl/core/regfile.v
+# 1. Read all the Verilog design files (Do not include testbenches!)
+read_verilog -sv rtl/top/riscv_core.v rtl/core/*.v rtl/memory/*.v
 
-# 2. Read files from the memory directory
-read_verilog -sv rtl/memory/data_mem.v rtl/memory/instr_mem.v
+# 2. Check the design hierarchy and set the top module
+hierarchy -check -top riscv_core
 
-# 3. Read the top-level file
-read_verilog -sv rtl/top/riscv_core.v
+# 3. Perform the high-level synthesis
+synth -top riscv_core
 
-# 4. Prepare the design
-prep -top riscv_core
+# 4. Map the logic to internal generic gates
+abc -g NAND,NOR,AND,OR,XOR,DFF
 
-# 5. Smash all sub-modules into one giant circuit
-flatten
+# 5. Print a report of the final gate count
+stat
 
-# 6. Generate the JSON file
-write_json riscv_full.json
+# 6. (Optional) Export the gate-level netlist to a new Verilog file
+write_verilog sim/riscv_core_netlist.v

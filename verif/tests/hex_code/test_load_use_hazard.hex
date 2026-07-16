@@ -1,0 +1,12 @@
+01400093 // ADDI x1, x0, 20   : Setup base address x1 = 20
+00A00113 // ADDI x2, x0, 10   : Setup x2 = 10
+0020A023 // SW   x2, 0(x1)    : Store 10 at mem[20]
+
+// --- The Collision Hazard ---
+0000A183 // LW   x3, 0(x1)    : Load 10 into x3
+00018233 // ADD  x4, x3, x0   : x4 = 10 + 0 = 10. (Triggers load-use stall!)
+00220463 // BEQ  x4, x2, 8    : Compare x4(10) with x2(10). (Requires forwarding after the stall!)
+
+// --- Targets ---
+06300513 // ADDI x10, x0, 99  : POISON PILL! Executed if the branch fails.
+06400513 // ADDI x10, x0, 100 : SUCCESS TARGET!

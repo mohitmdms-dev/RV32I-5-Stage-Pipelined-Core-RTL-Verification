@@ -14,7 +14,14 @@ module regfile #(
 );
 
 logic [DATA_WIDTH-1:0] mem_array [31:0];
-
+     
+//initializing mem_array values to 0
+integer i;
+    initial begin
+        for (i = 0; i < 32; i = i + 1) begin
+            mem_array[i] = 32'b0;
+        end
+    end
 //ASNYCHRONOUS READ LOGIC
     // RISC-V Architecture Rule: Register x0 must always read as 0.
     // The ternary operator (?) checks if the address is 0. If true, it 

@@ -24,7 +24,7 @@ module riscv_core (
 
     mux2to1 #(32) pc_mux (
         .in0(pc_plus4_F),
-        .in1(target_addr_M),
+        .in1(target_addr_E),     // bug Fixed: Now pulling the target from Execute stage
         .sel(take_branch_E),     //changed from pcsel_M to Now using the gated decision from Execute stage
         .out(next_pc_F)
     );
@@ -286,7 +286,7 @@ module riscv_core (
 
     logic [31:0] read_data_M;
     
-    // Branch Logic (AND gate)
+    // Branch Logic (AND)
     assign pcsel_M = branch_M & take_branch_M;
 
     data_mem dmem (

@@ -1,0 +1,4 @@
+01400093 // ADDI x1, x0, 20   : Set Base Address to 20
+02500113 // ADDI x2, x0, 37   : Set Data to 37
+0020A223 // SW   x2, 4(x1)    : Store 37 at memory address 24 (Base 20 + Offset 4)
+0040A503 // LW   x10, 4(x1)   : Load the value from memory address 24 into x10

@@ -1,6 +1,0 @@
-00500093 // ADDI x1, x0, 5    : Set register x1 to 5
-00300113 // ADDI x2, x0, 3    : Set register x2 to 3
-002081B3 // ADD  x3, x1, x2   : x3 = 5 + 3 = 8
-40208233 // SUB  x4, x1, x2   : x4 = 5 - 3 = 2
-00018513 // ADDI x10, x3, 0   : Copy x3 (8) to x10 for verification
-00020513 // ADDI x10, x4, 0   : Copy x4 (2) to x10 for verification

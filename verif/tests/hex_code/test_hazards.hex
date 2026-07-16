@@ -1,0 +1,14 @@
+// --- TEST 1: Store Data Forwarding ---
+01400093 // ADDI x1, x0, 20   : Setup x1 = 20
+00000113 // ADDI x2, x0, 0    : Setup x2 = 0 (Base Address for memory)
+001081B3 // ADD  x3, x1, x1   : x3 = 20 + 20 = 40 (Producer)
+00312023 // SW   x3, 0(x2)    : Store 40 to mem[0]. (Consumer! Requires forward_b in EX stage)
+
+// --- TEST 2: Branch Operand Forwarding ---
+00012203 // LW   x4, 0(x2)    : Load mem[0] into x4. (If store forwarding worked, x4 = 40)
+00000013 // NOP               : (Isolating the load to prevent load-use stall interference)
+02800293 // ADDI x5, x0, 40   : Setup x5 = 40
+00108333 // ADD  x6, x1, x1   : x6 = 20 + 20 = 40 (Producer)
+00530463 // BEQ  x6, x5, 8    : Compare x6 (40) to x5 (40). (Consumer! Requires forwarding to Branch Eval)
+06300513 // ADDI x10, x0, 99  : POISON PILL! Executed if branch forwarding fails and BEQ evaluates false.
+06400513 // ADDI x10, x0, 100 : SUCCESS TARGET!
