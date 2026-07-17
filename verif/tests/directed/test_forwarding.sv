@@ -42,7 +42,6 @@ module test_forwarding;
         else begin
            $display("========================================");
            $display("FAIL: Expected 28, but got %d", dut.rf_inst.mem_array[3]);
-           $display("Tip: Check your register write-back or ALU operation logic.");
            $display("========================================");
         end
     

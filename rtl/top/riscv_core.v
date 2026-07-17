@@ -130,10 +130,13 @@ module riscv_core (
     logic [2:0]  funct3_E;
     logic        funct7_5_E;
 
+    logic funct7_0_E;    // Added: Bit 25 of the instruction, crucial for identifying MUL instructions
+
     id_ex_reg id_ex_inst (
         .clk(clk),
         .rst_n(rst_n),
-        .flush(stall || flush), // Flush EX if we stall or branch
+        .en(~stall),   
+        .flush((stall & ~is_mul_E) | flush),   //fix, Only flush if it's NOT a multiplier stall
         
         .reg_write_in(reg_write_D), .mem_to_reg_in(mem_to_reg_D),
         .mem_write_in(mem_write_D), .mem_read_in(mem_read_D),
@@ -145,7 +148,8 @@ module riscv_core (
         .rs1_in(rs1_D),             .rs2_in(rs2_D),
         .rd_in(rd_D),
         .funct3_in(instr_D[14:12]), .funct7_5_in(instr_D[30]),
-        .op_5_in(instr_D[5]),     //Extract bit 5 of the current instruction to send to Execute stage
+        .funct7_0_in(instr_D[25]),   //Connecting instruction bit 25
+        .op_5_in(instr_D[5]),        //Extract bit 5 of the current instruction to send to Execute stage
 
 
         .reg_write_out(reg_write_E), .mem_to_reg_out(mem_to_reg_E),
@@ -158,17 +162,26 @@ module riscv_core (
         .rs1_out(rs1_E),             .rs2_out(rs2_E),
         .rd_out(rd_E),
         .funct3_out(funct3_E),       .funct7_5_out(funct7_5_E),
+        .funct7_0_out(funct7_0_E),    // Passing the bit 25 status to the Execute stage
         .op_5_out(op_5_E)
     );
 
     // Hazard Detection Unit
     hazard_detection hd_inst (
+        .clk(clk),
+        .rst_n(rst_n),
         .rs1_id(rs1_D),
         .rs2_id(rs2_D),
         .rd_ex(rd_E),
         .mem_read_ex(mem_read_E),
-        .stall(stall)
+        .mult_start(mult_start),
+        .mult_ready(mult_ready),
+        .stall(hd_stall)   
     );
+
+    // STALL LOGIC: Force global stall if MUL is computing
+    wire force_mul_stall = is_mul_E & ~mult_ready;
+    assign stall = hd_stall | force_mul_stall;
 
     
 // STAGE 3: EXECUTE (E)
@@ -187,6 +200,41 @@ module riscv_core (
     logic        reg_write_M;
     logic [4:0]  rd_M;
     logic [31:0] alu_result_M;
+
+    // Multiplier control signals
+    logic mult_start;
+    logic [31:0] mult_result;
+    logic mult_ready;
+    
+    // Identify if the current instruction in the Execute stage is a MUL
+    wire is_mul_E = (funct7_0_E == 1'b1) && (funct3_E == 3'b000) && (op_5_E == 1'b1);
+    
+    // State flip-flop to track if the multiplier is currently running
+    logic mul_busy;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) mul_busy <= 1'b0;
+        else if (is_mul_E && !mult_ready) mul_busy <= 1'b1;
+        else if (mult_ready) mul_busy <= 1'b0;
+    end
+
+    // Only send a 1-cycle START pulse on the very first cycle
+    assign mult_start = is_mul_E & ~mul_busy;
+    
+    
+    logic [31:0] final_execute_result;    // for final chosen result
+
+    // The MUX: If it is a MUL, take the multiplier's answer. Otherwise, take the ALU's answer.
+    assign final_execute_result = is_mul_E ? mult_result : alu_result_E; 
+
+    multiplier mult_inst (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(mult_start),
+        .multiplicand(alu_in1_E),
+        .multiplier(alu_in2_mux_E), // Use the forwarded data
+        .result(mult_result),
+        .ready(mult_ready)
+    );
 
     forwarding_unit fwd_inst (
         .rd_mem(rd_M),
@@ -255,20 +303,23 @@ module riscv_core (
     logic mem_to_reg_M, mem_write_M, mem_read_M, branch_M, take_branch_M;
     logic [31:0] rd2_M;
     logic        zero_flag_M;
-
+    logic [2:0]  funct3_M;      // ADDED: Wire to hold funct3 in the Memory stage
+    
     ex_mem_reg ex_mem_inst (
         .clk(clk),
         .rst_n(rst_n),
         
-        .reg_write_in(reg_write_E), .mem_to_reg_in(mem_to_reg_E),
+        .reg_write_in(reg_write_E),
+        .mem_to_reg_in(mem_to_reg_E),
         .mem_write_in(mem_write_E), .mem_read_in(mem_read_E),
-        .branch_in(branch_E),
+        .branch_in(branch_E),    //fix, If this is a MUL instruction, ONLY allow writing if mult_ready is true
         
-        .alu_result_in(alu_result_E), 
+        .alu_result_in(final_execute_result), 
         .rd2_in(alu_in2_mux_E),
         .target_addr_in(target_addr_E), 
         .take_branch_in(take_branch_E),
         .rd_in(rd_E),
+        .funct3_in(funct3_E), // ADDED: Input from Execute stage
 
         .reg_write_out(reg_write_M), .mem_to_reg_out(mem_to_reg_M),
         .mem_write_out(mem_write_M), .mem_read_out(mem_read_M),
@@ -278,7 +329,8 @@ module riscv_core (
         .rd2_out(rd2_M),
         .target_addr_out(target_addr_M), 
         .take_branch_out(take_branch_M), 
-        .rd_out(rd_M)
+        .rd_out(rd_M),
+        .funct3_out(funct3_M) // ADDED: Output to Memory stage
     );
 
     
@@ -295,6 +347,7 @@ module riscv_core (
         .mem_read(mem_read_M),
         .addr(alu_result_M),
         .write_data(rd2_M),
+        .funct3(funct3_M),   // ADDED: Pass funct3 to data memory
         .read_data(read_data_M)
     );
 

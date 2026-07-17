@@ -14,7 +14,7 @@ module control_unit (
 
 // RISC-V RV32I Opcodes
     localparam [6:0] 
-        OP_R_TYPE  = 7'b0110011, // ADD, SUB, SLL, SLT, XOR, SRL, SRA, OR, AND
+        OP_R_TYPE  = 7'b0110011, // ADD, SUB, SLL, SLT, XOR, SRL, SRA, OR, AND, MUL
         OP_I_TYPE  = 7'b0010011, // ADDI, SLTI, XORI, ORI, ANDI, SLLI, SRLI, SRAI
         OP_LOAD    = 7'b0000011, // LW, LH, LB
         OP_STORE   = 7'b0100011, // SW, SH, SB
@@ -22,6 +22,16 @@ module control_unit (
         
 
 always_comb begin
+
+    // Default all signals to 0
+        reg_write  = 1'b0;
+        mem_to_reg = 1'b0;
+        mem_write  = 1'b0;
+        mem_read   = 1'b0;
+        branch     = 1'b0;
+        alu_src    = 1'b0;
+        alu_op     = 3'b000;
+        imm_src    = 3'b000;
 
     case(opcode)
 

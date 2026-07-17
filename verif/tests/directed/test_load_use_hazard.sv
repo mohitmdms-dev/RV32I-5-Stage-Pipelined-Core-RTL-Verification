@@ -28,7 +28,7 @@ module test_load_use_hazard;
 
         #500; 
 
-        // --- VERIFICATION STEP ---
+        // VERIFICATION 
         // If forwarding logic works, x4 will be 10, the BEQ will be taken, 
         // the branch will succeed, and x10 will become 100.
         $display("Time: %0t | Verifying Hazard Handling (Target: x10=100)...", $time);
@@ -40,7 +40,6 @@ module test_load_use_hazard;
         end else begin
             $display("========================================");
             $display("FAIL: Expected 100, but got %d", dut.rf_inst.mem_array[10]);
-            $display("Tip: Check your Hazard Unit stall condition and Forwarding muxes.");
             $display("========================================");
         end
         
