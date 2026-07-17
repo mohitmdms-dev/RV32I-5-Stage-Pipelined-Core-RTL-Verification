@@ -7,7 +7,7 @@ module mem_wb_reg (
     // Control Inputs
     input logic reg_write_in,
     input logic mem_to_reg_in,
-    
+    input logic en,
     // Data Inputs
     input logic [31:0] alu_result_in,
     input logic [31:0] read_data_in,
@@ -32,7 +32,7 @@ module mem_wb_reg (
             read_data_out  <= 32'b0;
             rd_out         <= 5'b0;
         end
-        else begin
+        else if(en) begin
             // Pass signals forward to the Writeback stage
             reg_write_out  <= reg_write_in;
             mem_to_reg_out <= mem_to_reg_in;

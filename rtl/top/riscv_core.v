@@ -138,7 +138,7 @@ module riscv_core (
         .clk(clk),
         .rst_n(rst_n),
         .en(~stall),   
-        .flush((stall & ~is_mul_E) | flush),   //fix, Only flush if it's NOT a multiplier stall
+        .flush((stall & ~is_mul_E & ~is_div_E) | flush),   //fix, prevent the register from flushing during ANY math stall
         
         .reg_write_in(reg_write_D), .mem_to_reg_in(mem_to_reg_D),
         .mem_write_in(mem_write_D), .mem_read_in(mem_read_D),
@@ -170,20 +170,12 @@ module riscv_core (
 
     // Hazard Detection Unit
     hazard_detection hd_inst (
-        .clk(clk),
-        .rst_n(rst_n),
         .rs1_id(rs1_D),
         .rs2_id(rs2_D),
         .rd_ex(rd_E),
         .mem_read_ex(mem_read_E),
-        .mult_start(mult_start),
-        .mult_ready(mult_ready),
         .stall(hd_stall)   
     );
-
-    // STALL LOGIC: Force global stall if MUL is computing
-    wire force_mul_stall = is_mul_E & ~mult_ready;
-    assign stall = hd_stall | force_mul_stall;
 
     
 // STAGE 3: EXECUTE (E)
@@ -202,14 +194,24 @@ module riscv_core (
     logic        reg_write_M;
     logic [4:0]  rd_M;
     logic [31:0] alu_result_M;
+    
+    // Divider control signals
+    logic div_start;
+    logic [31:0] div_quotient;
+    logic [31:0] div_remainder;
+    logic div_by_zero;
 
     // Multiplier control signals
     logic mult_start;
     logic [31:0] mult_result;
-    logic mult_ready;
     
-    // Identify if the current instruction in the Execute stage is a MUL
+    // Wires for module readiness
+    logic mult_ready;
+    logic div_ready;
+    
+    // Identify if the instructions in the Execute stage are MUL or DIV
     wire is_mul_E = (funct7_0_E == 1'b1) && (funct3_E == 3'b000) && (op_5_E == 1'b1);
+    wire is_div_E = (funct7_0_E == 1'b1) && (funct3_E == 3'b100) && (op_5_E == 1'b1);
     
     // State flip-flop to track if the multiplier is currently running
     logic mul_busy;
@@ -219,15 +221,28 @@ module riscv_core (
         else if (mult_ready) mul_busy <= 1'b0;
     end
 
+    // State flip-flop to track if the divider is currently running
+    logic div_busy;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) div_busy <= 1'b0;
+        else if (is_div_E && !div_ready) div_busy <= 1'b1;
+        else if (div_ready) div_busy <= 1'b0;
+    end
+
+    // Only send a 1-cycle START pulse on the very first cycle
+    assign div_start = is_div_E & ~div_busy;
+
     // Only send a 1-cycle START pulse on the very first cycle
     assign mult_start = is_mul_E & ~mul_busy;
     
-    
+    // STALL LOGIC: Force global stall if ANY math unit is computing
+    wire force_math_stall = (is_mul_E & ~mult_ready) | (is_div_E & ~div_ready);
+    assign stall = hd_stall | force_math_stall;
+
     logic [31:0] final_execute_result;    // for final chosen result
 
-    // The MUX: If it is a MUL, take the multiplier's answer. Otherwise, take the ALU's answer.
-    assign final_execute_result = is_mul_E ? mult_result : alu_result_E; 
-
+    // The MUX: Choose between MUL, DIV, or standard ALU
+    assign final_execute_result = is_mul_E ? mult_result : is_div_E ? div_quotient : alu_result_E;
     multiplier mult_inst (
         .clk(clk),
         .rst_n(rst_n),
@@ -236,6 +251,18 @@ module riscv_core (
         .multiplier(alu_in2_mux_E), // Use the forwarded data
         .result(mult_result),
         .ready(mult_ready)
+    );
+
+    divider div_inst (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(div_start),
+        .dividend(alu_in1_E),
+        .divisor(alu_in2_mux_E), // Use the forwarded data
+        .quotient(div_quotient),
+        .remainder(div_remainder),
+        .ready(div_ready),
+        .div_by_zero(div_by_zero)
     );
 
     forwarding_unit fwd_inst (
@@ -269,8 +296,8 @@ module riscv_core (
         .alu_op(alu_op_E),
         .funct3(funct3_E),
         .funct7_5(funct7_5_E),
-        // [BUGFIX]: Must use the actual instruction's opcode bit (op_5_E), 
-        // NOT the sign-extended immediate (imm_ext_E[5]). The immediate 
+        // FIX, Must use the actual instruction's opcode bit (op_5_E), 
+        // The immediate and NOT the sign-extended immediate (imm_ext_E[5]) 
         // defaults to 0 for R-Type instructions, which previously forced 
         // all SUBs to execute as ADDs.
         .op_5(op_5_E), 
@@ -310,10 +337,12 @@ module riscv_core (
     ex_mem_reg ex_mem_inst (
         .clk(clk),
         .rst_n(rst_n),
+        .en(1'b1),        // EX/MEM: Always advance (en=1'b1), but bubble control signals when math unit is busy
         
-        .reg_write_in(reg_write_E),
+        .reg_write_in(reg_write_E & ~force_math_stall), // Inject bubble
         .mem_to_reg_in(mem_to_reg_E),
-        .mem_write_in(mem_write_E), .mem_read_in(mem_read_E),
+        .mem_write_in(mem_write_E & ~force_math_stall), // Inject bubble
+        .mem_read_in(mem_read_E),
         .branch_in(branch_E),    //fix, If this is a MUL instruction, ONLY allow writing if mult_ready is true
         
         .alu_result_in(final_execute_result), 
@@ -361,6 +390,7 @@ module riscv_core (
     mem_wb_reg mem_wb_inst (
         .clk(clk),
         .rst_n(rst_n),
+        .en(1'b1),  // MEM/WB: Always advance (en=1'b1), just pass through whatever exits EX/MEM
         
         .reg_write_in(reg_write_M),
         .mem_to_reg_in(mem_to_reg_M),

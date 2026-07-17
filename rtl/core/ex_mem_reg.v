@@ -5,7 +5,7 @@ module ex_mem_reg (
     input logic rst_n,
 
     // Control Inputs
-    input logic reg_write_in, mem_to_reg_in, mem_write_in, mem_read_in, branch_in,
+    input logic reg_write_in, mem_to_reg_in, mem_write_in, mem_read_in, branch_in, en,
     
     // Data Inputs
     input logic [31:0] alu_result_in, rd2_in, target_addr_in,
@@ -42,7 +42,7 @@ always_ff @(posedge clk or negedge rst_n) begin
             take_branch_out   <= 1'b0;
             rd_out          <= 5'b0;
         end
-        else begin
+        else if(en) begin
             // Pass Inputs to Outputs
             reg_write_out  <= reg_write_in;
             mem_to_reg_out <= mem_to_reg_in;
