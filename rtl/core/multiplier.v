@@ -16,7 +16,7 @@ module multiplier (
         BUSY = 1'b1
     } state_t;
 
-    state_t state, next_state;
+    state_t state;
 
 // Internal Registers
     logic [31:0] mcand_reg;   // Holds the shifting multiplicand
@@ -24,54 +24,28 @@ module multiplier (
     logic [31:0] accumulator;
     logic [5:0]  count;       // Needs to count up to 32
 
-// State Machine Register
+// fsm and datapath
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= IDLE;
-        end 
-        else begin
-            state <= next_state;
-        end
-    end
-
-// Next State Logic
-    always_comb begin
-        case (state)
-            IDLE: begin
-                if (start == 1'b1) 
-                    next_state = BUSY;
-                else 
-                    next_state = IDLE;
-            end
-            BUSY: begin
-                if (count == 6'd32) 
-                    next_state = IDLE;
-                else 
-                    next_state = BUSY;
-            end
-            default: next_state = IDLE;
-        endcase
-    end
-
-// Datapath (Shift and Add)
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
             mcand_reg   <= 32'b0;
             mplier_reg  <= 32'b0;
             accumulator <= 32'b0;
             count       <= 6'b0;
             ready       <= 1'b0;
             result      <= 32'b0;
-        end else begin
+        end 
+        else begin
             case (state)
                 IDLE: begin
                     ready <= 1'b0;
                     if (start) begin
-                        // Load the registers when 'start' is triggered
+                        // Load the registers and transition state
                         mcand_reg   <= multiplicand;
                         mplier_reg  <= multiplier;
                         accumulator <= 32'b0;
                         count       <= 6'b0;
+                        state       <= BUSY; // Transition handled directly here
                     end
                 end
 
@@ -86,16 +60,20 @@ module multiplier (
                         mcand_reg  <= mcand_reg << 1;
                         mplier_reg <= mplier_reg >> 1;
                         
-                        count <= count + 1'b1;
+                        count <= count + 6'd1;
                     end 
                     else begin
                         // Finished 32 cycles
                         result <= accumulator;
                         ready  <= 1'b1;
+                        state  <= IDLE; // Return to IDLE
                     end
                 end
+                
+                default: state <= IDLE;
             endcase
         end
     end
+        
 
 endmodule

@@ -1,6 +1,8 @@
 module riscv_core (
     input logic clk,
-    input logic rst_n
+    input logic rst_n,
+
+    output logic [31:0] probe_out // Added to prevent optimization
 );
 
     // GLOBAL HAZARD WIRES
@@ -384,4 +386,6 @@ module riscv_core (
         .out(write_data_W)
     );
 
+    // Feed the final data to the output for Yosys to builds the CPU
+    assign probe_out = write_data_W;
 endmodule

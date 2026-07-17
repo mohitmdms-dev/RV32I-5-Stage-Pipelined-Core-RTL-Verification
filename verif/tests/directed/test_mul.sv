@@ -17,7 +17,7 @@ module test_mul;
         forever #5 clk = ~clk;
     end
     
-    // 2. Test execution block
+    // Test execution block
     initial begin
         
         $dumpfile("sim/test_mul.vcd");

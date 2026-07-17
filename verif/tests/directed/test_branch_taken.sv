@@ -4,7 +4,8 @@ module test_branch_taken;
 
     logic clk;
     logic rst_n;
-
+    
+    //instantiate dut
     riscv_core dut (
         .clk(clk),
         .rst_n(rst_n)
